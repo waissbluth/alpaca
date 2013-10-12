@@ -10,6 +10,7 @@ module Rack
         @whitelist ||= config['whitelist'].map { |ip| IPAddr.new(ip) }.freeze
         @blacklist ||= config['blacklist'].map { |ip| IPAddr.new(ip) }.freeze
         @default = config['default']
+        @blocked_message = (config['blocked_message'] || "Service Unavailable") << "\n"
 
         self
       end
@@ -20,7 +21,7 @@ module Rack
         if whitelisted?('whitelist', req)
           @app.call(env)
         elsif blacklisted?('blacklist', req)
-          [503, {}, ["Request blocked\n"]]
+          [503, {}, [@blocked_message]]
         else
           default_strategy(env)
         end
@@ -32,7 +33,7 @@ module Rack
         if @default == 'allow'
           @app.call(env)
         elsif @default == 'deny'
-          [503, {}, ["Request blocked\n"]]
+          [503, {}, [@blocked_message]]
         else
           raise 'Unknown default strategy'
         end

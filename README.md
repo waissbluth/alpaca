@@ -69,6 +69,7 @@ blacklist:
   - 0.0.0.2
   - "2001:db8::/32"
 default: allow
+blocked_message: 'Request Blocked'
 ```
 
 Depending on your strategy, you may choose to enforce an allow-by-default or deny-by-default approach. You can use the `default` key in the configuration file with either `allow` or `deny` as its value.
