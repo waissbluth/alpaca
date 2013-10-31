@@ -1,16 +1,17 @@
 module Rack
   module Alpaca
     class << self
+
       attr_reader :whitelist, :blacklist
       attr_accessor :default
 
       def new (app)
+        @@config ||= YAML.load_file('config/alpaca.yml')
+
         @app = app
-        config = YAML.load_file('config/alpaca.yml')
-        @whitelist ||= config['whitelist'].map { |ip| IPAddr.new(ip) }.freeze
-        @blacklist ||= config['blacklist'].map { |ip| IPAddr.new(ip) }.freeze
-        @default = config['default']
-        @blocked_message = (config['blocked_message'] || "Service Unavailable") << "\n"
+        @whitelist ||= Hash[@@config['whitelist'].map { |ip| [IPAddr.new(ip), true] }].freeze
+        @blacklist ||= Hash[@@config['blacklist'].map { |ip| [IPAddr.new(ip), true] }].freeze
+        @default = @@config['default']
 
         self
       end
@@ -21,7 +22,7 @@ module Rack
         if whitelisted?('whitelist', req)
           @app.call(env)
         elsif blacklisted?('blacklist', req)
-          [503, {}, [@blocked_message]]
+          [503, {}, ["Request blocked\n"]]
         else
           default_strategy(env)
         end
@@ -33,16 +34,19 @@ module Rack
         if @default == 'allow'
           @app.call(env)
         elsif @default == 'deny'
-          [503, {}, [@blocked_message]]
+          [503, {}, ["Request blocked\n"]]
         else
           raise 'Unknown default strategy'
         end
       end
 
       def check (type, req)
-        instance_variable_get("@#{type}").any? do |ip|
-          ip.include?(req.ip)
-        end
+        req_ip = IPAddr.new(req.ip)
+        !instance_variable_get("@#{type}").select { |k, v| k.include? req_ip }.empty?
+        #instance_variable_get("@#{type}")[req_ip]
+        #instance_variable_get("@#{type}").any? do |ip|
+        #  ip.include?(req.ip)
+        #end
       end
 
       alias_method :whitelisted?, :check
